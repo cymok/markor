@@ -10,6 +10,7 @@
 package net.gsantner.markor.ui.hleditor;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.os.Build;
 import android.os.Handler;
 import android.support.annotation.RequiresApi;
@@ -29,6 +30,7 @@ import net.gsantner.opoc.util.Callback;
 import net.gsantner.opoc.util.StringUtils;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -109,6 +111,87 @@ public class HighlightingEditor extends AppCompatEditText {
                 }
             }
         });
+
+        if (showLineNumber) {
+            oldPaddingLeft = getPaddingLeft();
+            resetPadding();
+        }
+    }
+
+    private void resetPadding() {
+        setPadding(lineNumberMinWidth + oldPaddingLeft, getPaddingTop(), getPaddingRight(), getPaddingBottom());
+    }
+
+    boolean showLineNumber = true;
+
+    int lineStart;
+    int lineEnd;
+    String lineText;
+
+    int lineNumber;
+    boolean isDrawLine;
+
+    int oldPaddingLeft;
+    int lineNumberMinWidth;
+    ArrayList<Integer> lineNumberYList; //
+    int tempHeight; // record the height of each row
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if (showLineNumber) {
+            lineStart = 0;
+            lineNumber = 0;
+            isDrawLine = true;
+            lineNumberMinWidth = 0;
+            if (lineNumberYList == null) {
+                lineNumberYList = new ArrayList<>();
+            }
+            lineNumberYList.clear();
+            tempHeight = getPaddingTop();
+
+            // todo 不能在 onDraw 遍历 数据多了会卡顿
+            for (int lineIndex = 0; lineIndex < getLineCount(); lineIndex++) {
+                tempHeight += getLayout().getLineBottom(lineIndex) - getLayout().getLineTop(lineIndex);
+
+                lineEnd = getLayout().getLineEnd(lineIndex);
+                lineText = getText().toString().substring(lineStart, lineEnd);
+                lineStart = lineEnd;
+
+                lineNumber++;
+
+                lineNumberYList.add(tempHeight - getLayout().getLineDescent(lineIndex));
+                // horizontal: paddingLeft/4 + lineNumberMinWidth + paddingLeft/4 + | + paddingLeft/2 + inputText
+                // y: the top of current line == the bottom of previous line
+                canvas.drawText(isDrawLine ? String.valueOf((lineNumber)) : "", oldPaddingLeft / 4.0f, lineNumberYList.get(lineIndex), getPaint());
+
+                if (lineNumberMinWidth < getPaint().measureText(String.valueOf(lineNumber))) {
+                    lineNumberMinWidth = (int) (getPaint().measureText(String.valueOf(lineNumber)) + 0.5f);
+                }
+
+                if (lineText.endsWith("\n")) {
+                    isDrawLine = true;
+                } else {
+                    lineNumber--;
+                    isDrawLine = false;
+                }
+            }
+
+            resetPadding();
+            canvas.drawLine(lineNumberMinWidth + oldPaddingLeft / 2.0f, getPaddingTop(), lineNumberMinWidth + oldPaddingLeft / 2.0f, tempHeight, getPaint());
+        }
     }
 
     public void setHighlighter(final Highlighter newHighlighter) {
