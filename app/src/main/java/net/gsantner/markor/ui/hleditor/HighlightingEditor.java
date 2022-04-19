@@ -119,22 +119,23 @@ public class HighlightingEditor extends AppCompatEditText {
     }
 
     private void resetPadding() {
-        setPadding(lineNumberMinWidth + oldPaddingLeft, getPaddingTop(), getPaddingRight(), getPaddingBottom());
+        setPadding(lineNumberWidth + oldPaddingLeft, getPaddingTop(), getPaddingRight(), getPaddingBottom());
     }
 
+    // 行号开关 后续可以在 App 的设置页面提供开关
     boolean showLineNumber = true;
 
     int lineStart;
     int lineEnd;
-    String lineText;
+    String lineText; // 用于记录 EditText 每行的内容
 
-    int lineNumber;
-    boolean isDrawLine;
+    int lineNumber; // 记录行号
+    boolean needLineNumber; // 记录是否需要绘制行号
 
-    int oldPaddingLeft;
-    int lineNumberMinWidth;
-    ArrayList<Integer> lineNumberYList; //
-    int tempHeight; // record the height of each row
+    int oldPaddingLeft; // 重新设置填充边距前的填充边距
+    int lineNumberWidth; // 重新设置填充边距时行号的宽度
+    ArrayList<Integer> lineNumberYList; // 记录每个行号的 Y 坐标
+    int lineBottomY; // line bottom Y, the height of each row, real line height
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -154,17 +155,19 @@ public class HighlightingEditor extends AppCompatEditText {
         if (showLineNumber) {
             lineStart = 0;
             lineNumber = 0;
-            isDrawLine = true;
-            lineNumberMinWidth = 0;
+            needLineNumber = true;
+            lineNumberWidth = 0;
             if (lineNumberYList == null) {
                 lineNumberYList = new ArrayList<>();
             }
             lineNumberYList.clear();
-            tempHeight = getPaddingTop();
+            lineBottomY = getPaddingTop();
 
             // todo 不能在 onDraw 遍历 数据多了会卡顿
+            // line number: 1 2 3 4 ...
             for (int lineIndex = 0; lineIndex < getLineCount(); lineIndex++) {
-                tempHeight += getLayout().getLineBottom(lineIndex) - getLayout().getLineTop(lineIndex);
+                // 真正的行高，读取的一行文本在UI上显示因超长而换行时的多行算在一起，因为只要显示一个行号: LineBottom - LineTop
+                lineBottomY += getLayout().getLineBottom(lineIndex) - getLayout().getLineTop(lineIndex);
 
                 lineEnd = getLayout().getLineEnd(lineIndex);
                 lineText = getText().toString().substring(lineStart, lineEnd);
@@ -172,25 +175,27 @@ public class HighlightingEditor extends AppCompatEditText {
 
                 lineNumber++;
 
-                lineNumberYList.add(tempHeight - getLayout().getLineDescent(lineIndex));
+                // text bottom of text: height - descent
+                lineNumberYList.add(lineBottomY - getLayout().getLineDescent(lineIndex));
                 // horizontal: paddingLeft/4 + lineNumberMinWidth + paddingLeft/4 + | + paddingLeft/2 + inputText
-                // y: the top of current line == the bottom of previous line
-                canvas.drawText(isDrawLine ? String.valueOf((lineNumber)) : "", oldPaddingLeft / 4.0f, lineNumberYList.get(lineIndex), getPaint());
+                // y: top of current line == bottom of previous line
+                canvas.drawText(needLineNumber ? String.valueOf((lineNumber)) : "", oldPaddingLeft / 4.0f, lineNumberYList.get(lineIndex), getPaint());
 
-                if (lineNumberMinWidth < getPaint().measureText(String.valueOf(lineNumber))) {
-                    lineNumberMinWidth = (int) (getPaint().measureText(String.valueOf(lineNumber)) + 0.5f);
+                if (lineNumberWidth < getPaint().measureText(String.valueOf(lineNumber))) {
+                    lineNumberWidth = (int) (getPaint().measureText(String.valueOf(lineNumber)) + 0.5f);
                 }
 
                 if (lineText.endsWith("\n")) {
-                    isDrawLine = true;
+                    needLineNumber = true;
                 } else {
                     lineNumber--;
-                    isDrawLine = false;
+                    needLineNumber = false;
                 }
             }
 
             resetPadding();
-            canvas.drawLine(lineNumberMinWidth + oldPaddingLeft / 2.0f, getPaddingTop(), lineNumberMinWidth + oldPaddingLeft / 2.0f, tempHeight, getPaint());
+            // vertical line: |
+            canvas.drawLine(lineNumberWidth + oldPaddingLeft / 2.0f, getPaddingTop(), lineNumberWidth + oldPaddingLeft / 2.0f, lineBottomY, getPaint());
         }
     }
 
